@@ -7,31 +7,112 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ActivityKey {
+  alongamento
+  caminhada
+  corrida
+  pedalada
+  yoga
+  outro
+}
+
+enum Intensity {
+  low
+  medium
+  high
+}
+
+enum Environment {
+  open
+  closed
+}
+
+enum ChallengeStatus {
+  active
+  completed
+}
+
+enum SourceKind {
+  available
+  event
+}
+
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  name         String?
-  // status do onboarding (kaizoo concluído?)
-  profileReady Boolean  @default(false)
-  // escolha do kaizoo/mascote (opcional)
-  kaizoo       String?  // ex: "fox", "panda"...
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  createdAt     DateTime @default(now())
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  name          String?
+  mascot        String?
+  kaizoo        String?
+  profileReady  Boolean  @default(false)
 
-  refreshTokens RefreshToken[]
+  activities     Activity[]
+  refreshTokens  RefreshToken[]
+  userChallenges UserChallenge[]
+}
+
+model Activity {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type         ActivityKey
+  dateIso      DateTime
+  durationMin  Int
+  distanceKm   Decimal?     @db.Decimal(10, 2)
+  intensity    Intensity
+  mood         Int?
+  environment  Environment?
+  notes        String?
+  calories     Int?
+
+  createdAt    DateTime     @default(now())
+
+  @@index([userId, dateIso])
+}
+
+model UserChallenge {
+  id                 String          @id @default(uuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sourceId           String
+  sourceKind         SourceKind
+  title              String
+  description        String?
+  rewardXp           Int
+  status             ChallengeStatus
+  startedAt          DateTime        @default(now())
+  completedAt        DateTime?
+  durationDays       Int?
+  expiresInDays      Int?
+
+  metricType         ActivityKey?
+  metricDurationMin  Int?
+  metricDistanceKm   Decimal?        @db.Decimal(10, 2)
+  metricIntensity    Intensity?
+  metricCalories     Int?
+
+  eventTitle         String?
+  eventDate          String?         // dd/mm/yyyy para exibição
+  eventLocation      String?
+
+  instanceId         String?
+  createdAt          DateTime        @default(now())
+
+  @@index([userId, status, createdAt])
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String
-  revoked   Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  revoked    Boolean  @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
+  @@index([userId, revoked, expiresAt])
 }
